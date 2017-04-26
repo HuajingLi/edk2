@@ -291,7 +291,19 @@
   gEfiHttpProtocolGuid                                    ## UNDEFINED
   gEfiHttpUtilitiesProtocolGuid                           ## UNDEFINED
   gEfiRestProtocolGuid                                    ## UNDEFINED
-
+  gEfiSmmPciRootBridgeIoProtocolGuid                      ## UNDEFINED
+  gEfiTlsProtocolGuid                                     ## UNDEFINED
+  gEfiTlsServiceBindingProtocolGuid                       ## UNDEFINED
+  gEfiTlsConfigurationProtocolGuid                        ## UNDEFINED
+  gEfiSupplicantProtocolGuid                              ## UNDEFINED
+  gEfiSupplicantServiceBindingProtocolGuid                ## UNDEFINED
+  gEfiWiFi2ProtocolGuid                                   ## UNDEFINED
+  gEfiRamDiskProtocolGuid                                 ## UNDEFINED
+  gEfiHiiImageDecoderProtocolGuid                         ## UNDEFINED
+  gEfiHiiImageExProtocolGuid                              ## UNDEFINED
+  gEfiSdMmcPassThruProtocolGuid                           ## UNDEFINED
+  gEfiEraseBlockProtocolGuid                              ## UNDEFINED
+  
 [Guids]
   gEfiFileInfoGuid                                        ## UNDEFINED
   gEfiShellEnvironment2ExtGuid                            ## CONSUMES ## GUID

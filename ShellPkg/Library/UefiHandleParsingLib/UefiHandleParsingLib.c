@@ -1809,7 +1809,23 @@ STATIC CONST GUID_INFO_BLOCK mGuidStringList[] = {
 // Misc
 //
   {STRING_TOKEN(STR_PCDINFOPROT),           &gGetPcdInfoProtocolGuid,                         NULL},
-
+//
+//Add later
+//
+//  {STRING_TOKEN(STR_TLS),                        &gEfiTlsProtocolGuid,                        NULL},
+  {STRING_TOKEN(STR_SMM_PCI_ROOT_BRIDGE_IO),     &gEfiSmmPciRootBridgeIoProtocolGuid,         NULL},
+  {STRING_TOKEN(STR_TLS),                        &gEfiTlsProtocolGuid,                        NULL},
+  {STRING_TOKEN(STR_TLS_SERVICE_BINDING),        &gEfiTlsServiceBindingProtocolGuid,          NULL},
+  {STRING_TOKEN(STR_TLS_CONFIGURATION),          &gEfiTlsConfigurationProtocolGuid,           NULL},
+  {STRING_TOKEN(STR_SUPPLICANT),                 &gEfiSupplicantProtocolGuid,                 NULL},
+  {STRING_TOKEN(STR_SUPPLICANT_SERVICE_BINDING), &gEfiSupplicantServiceBindingProtocolGuid,   NULL},
+  {STRING_TOKEN(STR_WIFI2),                      &gEfiWiFi2ProtocolGuid,                      NULL},
+  {STRING_TOKEN(STR_RAM_DISK),                   &gEfiRamDiskProtocolGuid,                    NULL},
+  {STRING_TOKEN(STR_HII_IMAGE_DECODER),          &gEfiHiiImageDecoderProtocolGuid,            NULL},
+  {STRING_TOKEN(STR_HII_IMAGE_EX),               &gEfiHiiImageExProtocolGuid,                 NULL},
+  {STRING_TOKEN(STR_SD_MMC_PASS_THRU),           &gEfiSdMmcPassThruProtocolGuid,              NULL},
+  {STRING_TOKEN(STR_ERASE_BLOCK),                &gEfiEraseBlockProtocolGuid,                 NULL},
+  
 //
 // terminator
 //
