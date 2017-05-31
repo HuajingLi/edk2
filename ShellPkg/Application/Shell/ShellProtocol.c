@@ -3489,9 +3489,9 @@ InternalSetAlias(
     //
 
     // We dont check the error return on purpose since the variable may not exist.
-    gRT->SetVariable((CHAR16*)Command, &gShellAliasGuid, 0, 0, NULL);
+    //gRT->SetVariable((CHAR16*)Command, &gShellAliasGuid, 0, 0, NULL);
 
-    Status = (gRT->SetVariable((CHAR16*)Alias, &gShellAliasGuid, EFI_VARIABLE_BOOTSERVICE_ACCESS|(Volatile?0:EFI_VARIABLE_NON_VOLATILE), StrSize(Command), (VOID*)Command));
+    Status = (gRT->SetVariable((CHAR16*)AliasLower, &gShellAliasGuid, EFI_VARIABLE_BOOTSERVICE_ACCESS|(Volatile?0:EFI_VARIABLE_NON_VOLATILE), StrSize(Command), (VOID*)Command));
   }
 
   if (Alias != NULL) {
