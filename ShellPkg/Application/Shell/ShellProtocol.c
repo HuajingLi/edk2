@@ -3463,7 +3463,7 @@ InternalSetAlias(
 {
   EFI_STATUS  Status;
   CHAR16      *AliasLower;
-
+  CHAR16      *CommandLower; 
   // Convert to lowercase to make aliases case-insensitive
   if (Alias != NULL) {
     AliasLower = AllocateCopyPool (StrSize (Alias), Alias);
@@ -3474,7 +3474,15 @@ InternalSetAlias(
   } else {
     AliasLower = NULL;
   }
-
+  if(Command != NULL){                                            
+    CommandLower = AllocateCopyPool (StrSize (Command), Command);
+    if(CommandLower == NULL){
+      return EFI_OUT_OF_RESOURCES;
+    }
+    ToLower (CommandLower);
+  } else {
+    CommandLower = NULL;
+  }
   //
   // We must be trying to remove one if Alias is NULL
   //
@@ -3482,16 +3490,15 @@ InternalSetAlias(
     //
     // remove an alias (but passed in COMMAND parameter)
     //
-    Status = (gRT->SetVariable((CHAR16*)Command, &gShellAliasGuid, 0, 0, NULL));
+    Status = (gRT->SetVariable((CHAR16*)CommandLower, &gShellAliasGuid, 0, 0, NULL));
   } else {
     //
     // Add and replace are the same
     //
 
     // We dont check the error return on purpose since the variable may not exist.
-    gRT->SetVariable((CHAR16*)Command, &gShellAliasGuid, 0, 0, NULL);
 
-    Status = (gRT->SetVariable((CHAR16*)Alias, &gShellAliasGuid, EFI_VARIABLE_BOOTSERVICE_ACCESS|(Volatile?0:EFI_VARIABLE_NON_VOLATILE), StrSize(Command), (VOID*)Command));
+    Status = (gRT->SetVariable((CHAR16*)AliasLower, &gShellAliasGuid, EFI_VARIABLE_BOOTSERVICE_ACCESS|(Volatile?0:EFI_VARIABLE_NON_VOLATILE), StrSize(Command), (VOID*)Command));
   }
 
   if (Alias != NULL) {
