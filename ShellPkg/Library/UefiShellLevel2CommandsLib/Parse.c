@@ -104,19 +104,6 @@ ShellFileHandleReadStdInLine(
   }
   gEfiShellProtocol->GetFilePosition (Handle, &OriginalFilePosition);
 
-  //
-  // read the header of Unicode file, the header is 0xfeff...
-  //
-  CharBuffer = 0;
-  CharSize = sizeof(CHAR16);
-  Status = gEfiShellProtocol->ReadFile (Handle, &CharSize, &CharBuffer);
-  if(EFI_ERROR(Status)){
-    return (Status);
-  }
-  if(CharBuffer != gUnicodeFileTag){    //if not equal 0xfeff, reset the file origin
-    gEfiShellProtocol->SetFilePosition (Handle, OriginalFilePosition);
-  }
-  
   for (CountSoFar = 0;;CountSoFar++){
     CharBuffer = 0;
     CharSize = sizeof(CHAR16);
@@ -294,12 +281,7 @@ PerformParsing(
     ShellStatus = SHELL_NOT_FOUND;
   } else {
     for (LoopVariable = 0 ; LoopVariable < ShellCommandInstance && !ShellFileHandleEof(FileHandle);) {
-     if (StreamingUnicode) {
-       TempLine = ParseReturnStdInLine (FileHandle);
-     } else {
-       TempLine = ShellFileHandleReturnLine (FileHandle, &Ascii); 
-     }
-
+      TempLine = ShellFileHandleReturnLine (FileHandle, &Ascii);
       if ((TempLine == NULL) || (*TempLine == CHAR_NULL && StreamingUnicode)) {
          break;
       }
