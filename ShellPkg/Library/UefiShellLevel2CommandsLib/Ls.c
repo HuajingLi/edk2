@@ -16,6 +16,8 @@
 #include "UefiShellLevel2CommandsLib.h"
 #include <Guid/FileSystemInfo.h>
 
+UINTN     mDayOfMonth[] = {31, 28, 31, 30, 31, 30, 31, 30, 31, 30, 31, 30};
+
 /**
   print out the standard format output volume entry.
 
@@ -319,6 +321,89 @@ PrintNonSfoFooter(
 }
 
 /**
+  Adjust the EFI_TIME.
+
+  @param[in] Time               The EFI_TIME of file.
+  @param[in] CurrentTimeZone    Current TimeZone of Current time.
+**/
+VOID
+AdjustLocalTime (
+  IN EFI_TIME             *Time,
+  IN INT16                CurrentTimeZone
+  )
+{
+  INTN                    MinuteDiff;
+  INTN                    TempMinute;
+  INTN                    HourNumberOfTempMinute;
+  INTN                    TempHour;
+  INTN                    DayNumberOfTempHour;
+  INTN                    TempDay;
+  INTN                    MonthNumberOfTempDay;
+  INTN                    TempMonth;
+  INTN                    YearNumberOfTempMonth;
+  INTN                    MonthRecord;
+
+  ASSERT ((Time->TimeZone >= -1440) && (Time->TimeZone <=1440));
+  ASSERT ((CurrentTimeZone >= -1440) && (CurrentTimeZone <=1440));
+  ASSERT ((Time->Month >= 1) && (Time->Month <= 12));
+
+  if((Time->Year % 4 == 0 && Time->Year / 100 != 0)||(Time->Year % 400 == 0)) {
+    //
+    // Day in February of leap year is 29.
+    //
+    mDayOfMonth[1] = 29;
+  }
+
+  MinuteDiff = Time->TimeZone - CurrentTimeZone;
+  TempMinute = Time->Minute + MinuteDiff;
+
+  //
+  // Calculate Time->Minute
+  // TempHour will be used to calculate Time->Hour
+  //
+  HourNumberOfTempMinute = TempMinute / 60;
+  if(TempMinute < 0) {
+    HourNumberOfTempMinute --; 
+  }
+  TempHour = Time->Hour + HourNumberOfTempMinute;
+  Time->Minute = (UINT8)(TempMinute - 60 * HourNumberOfTempMinute);
+
+  //
+  // Calculate Time->Hour
+  // TempDay will be used to calculate Time->Day
+  //
+  DayNumberOfTempHour = TempHour / 24 ;
+  if(TempHour < 0){
+    DayNumberOfTempHour--;
+  }
+  TempDay = Time->Day + DayNumberOfTempHour;
+  Time->Hour = (UINT8)(TempHour - 24 * DayNumberOfTempHour);
+
+  //
+  // Calculate Time->Day
+  // TempMonth will be used to calculate Time->Month
+  //
+  MonthNumberOfTempDay = (TempDay - 1) / mDayOfMonth[Time->Month - 1];
+  MonthRecord = (INTN)(Time->Month) ;
+  if(TempDay - 1 < 0){
+    MonthNumberOfTempDay -- ;
+    MonthRecord -- ;
+  }
+  TempMonth = Time->Month + MonthNumberOfTempDay;
+  Time->Day = (UINT8)(TempDay - mDayOfMonth[(MonthRecord - 1 + 12) % 12] * MonthNumberOfTempDay);
+
+  //
+  // Calculate Time->Month, Time->Year
+  //
+  YearNumberOfTempMonth = (TempMonth - 1) / 12;
+  if(TempMonth - 1 < 0){
+    YearNumberOfTempMonth --;
+  }
+  Time->Month = (UINT8)(TempMonth - 12 * (YearNumberOfTempMonth));
+  Time->Year = (UINT16)(Time->Year + YearNumberOfTempMonth);
+}
+
+/**
   print out the list of files and directories from the LS command
 
   @param[in] Rec            TRUE to automatically recurse into each found directory
@@ -357,6 +442,7 @@ PrintLsOutput(
   CHAR16                *CorrectedPath;
   BOOLEAN               FoundOne;
   BOOLEAN               HeaderPrinted;
+  EFI_TIME              CurrentTime;
 
   HeaderPrinted = FALSE;
   FileCount     = 0;
@@ -408,6 +494,27 @@ PrintLsOutput(
         break;
       }
       ASSERT(Node != NULL);
+
+      //
+      //Adjust the local time according to the timezone of file.
+      //
+      gRT->GetTime(&CurrentTime, NULL);
+      if(Node->Info->CreateTime.TimeZone != EFI_UNSPECIFIED_TIMEZONE) {
+        if (Node->Info->CreateTime.Month >= 1 && Node->Info->CreateTime.Month <= 12) {
+          AdjustLocalTime(&Node->Info->CreateTime, CurrentTime.TimeZone);
+        }
+      }
+      if(Node->Info->LastAccessTime.TimeZone != EFI_UNSPECIFIED_TIMEZONE) {
+        if (Node->Info->LastAccessTime.Month >= 1 && Node->Info->LastAccessTime.Month <= 12) {
+          AdjustLocalTime(&Node->Info->LastAccessTime, CurrentTime.TimeZone);
+        }
+      }
+      if(Node->Info->ModificationTime.TimeZone != EFI_UNSPECIFIED_TIMEZONE) {
+        if (Node->Info->ModificationTime.Month >= 1 && Node->Info->ModificationTime.Month <= 12) {
+          AdjustLocalTime(&Node->Info->ModificationTime, CurrentTime.TimeZone);
+        }
+      }
+
       if (LongestPath < StrSize(Node->FullName)) {
         LongestPath = StrSize(Node->FullName);
       }
