@@ -347,6 +347,13 @@ AdjustLocalTime (
   ASSERT ((CurrentTimeZone >= -1440) && (CurrentTimeZone <=1440));
   ASSERT ((Time->Month >= 1) && (Time->Month <= 12));
 
+  if(Time->TimeZone == CurrentTimeZone) {
+    //
+    //if the local timezone is equal to the current timezone, there is no need to adjust the local time.
+    //
+    return;
+  }
+
   if((Time->Year % 4 == 0 && Time->Year / 100 != 0)||(Time->Year % 400 == 0)) {
     //
     // Day in February of leap year is 29.
@@ -383,14 +390,14 @@ AdjustLocalTime (
   // Calculate Time->Day
   // TempMonth will be used to calculate Time->Month
   //
-  MonthNumberOfTempDay = (TempDay - 1) / mDayOfMonth[Time->Month - 1];
+  MonthNumberOfTempDay = (TempDay - 1) / (INTN)mDayOfMonth[Time->Month - 1];
   MonthRecord = (INTN)(Time->Month) ;
   if(TempDay - 1 < 0){
     MonthNumberOfTempDay -- ;
     MonthRecord -- ;
   }
   TempMonth = Time->Month + MonthNumberOfTempDay;
-  Time->Day = (UINT8)(TempDay - mDayOfMonth[(MonthRecord - 1 + 12) % 12] * MonthNumberOfTempDay);
+  Time->Day = (UINT8)(TempDay - (INTN)mDayOfMonth[(MonthRecord - 1 + 12) % 12] * MonthNumberOfTempDay);
 
   //
   // Calculate Time->Month, Time->Year
