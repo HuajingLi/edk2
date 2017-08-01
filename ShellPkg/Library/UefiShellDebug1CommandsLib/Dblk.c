@@ -37,6 +37,7 @@ DisplayTheBlocks(
   EFI_STATUS                Status;
   SHELL_STATUS              ShellStatus;
   UINT8                     *Buffer;
+  UINT8                     *OldBuffer;
   UINTN                     BufferSize;
 
   ShellStatus = SHELL_SUCCESS;
@@ -52,12 +53,15 @@ DisplayTheBlocks(
   }
 
   BufferSize = BlockIo->Media->BlockSize * BlockCount;
+  if(!BlockIo->Media->IoAlign)   
+    BlockIo->Media->IoAlign = 1;
   if (BufferSize > 0) {
-    Buffer     = AllocateZeroPool(BufferSize);
+    OldBuffer     = AllocateZeroPool(BufferSize + BlockIo->Media->IoAlign);
   } else {
     ShellPrintEx(-1,-1,L"  BlockSize: 0x%08x, BlockCount: 0x%08x\r\n", BlockIo->Media->BlockSize, BlockCount);
-    Buffer    = NULL;
+    OldBuffer    = NULL;
   }
+  Buffer = (UINT8*)ALIGN_POINTER(OldBuffer,BlockIo->Media->IoAlign);
 
   Status = BlockIo->ReadBlocks(BlockIo, BlockIo->Media->MediaId, Lba, BufferSize, Buffer);
   if (!EFI_ERROR(Status) && Buffer != NULL) {
@@ -78,8 +82,8 @@ DisplayTheBlocks(
     ShellStatus = SHELL_DEVICE_ERROR;
   }
 
-  if (Buffer != NULL) {
-    FreePool(Buffer);
+  if (OldBuffer != NULL) {
+    FreePool(OldBuffer);
   }
 
   gBS->CloseProtocol(BlockIoHandle, &gEfiBlockIoProtocolGuid, gImageHandle, NULL);
