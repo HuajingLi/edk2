@@ -20,6 +20,120 @@
 #define INIT_NAME_BUFFER_SIZE  128
 
 /**
+  Get the absolute path 
+
+  @param[in] FilePath          The file path.
+
+  @retval    CorrectedPath     The absolute path of file.
+**/
+STATIC CHAR16*
+EFIAPI
+GetAbsolutePath (
+  IN  CONST CHAR16 *FilePath
+  )
+{
+  CONST CHAR16    *CurDir; 
+  CHAR16          *CorrectedPath;
+  CHAR16          *MapName;
+  CHAR16          *PartPath;
+  CONST CHAR16    *LastPath;
+  UINTN           Size;
+
+  CorrectedPath = NULL;
+  PartPath      = NULL;
+  LastPath      = NULL;
+  Size          = 0;
+
+  //
+  // Extract LastPath and MapName.
+  // 
+  // E.g. : when FilePath = fs0:\a\b\*
+  //             LastPath = \a\b\*
+  //             MapName  = fs0:
+  //        when FilePath = a\b\*
+  //             LastPath = a\b\*
+  //             MapName  = NULL
+  //
+  PartPath = StrStr (FilePath, L":");
+  if(PartPath == NULL) {
+    LastPath = FilePath;
+    MapName = NULL;
+  } else {
+    LastPath = PartPath + 1;
+    Size = StrSize (FilePath) - StrSize (LastPath);
+    MapName = AllocateZeroPool (Size + sizeof(CHAR16));
+    if (MapName == NULL) {
+      return NULL;
+    }
+    CopyMem (MapName, FilePath, Size);
+  }
+
+  CurDir = gEfiShellProtocol->GetCurDir (MapName);
+  if (CurDir == NULL) {
+    //
+    // MapName is invalid.
+    //
+    SHELL_FREE_NON_NULL (MapName);
+    return NULL;
+  } 
+
+  //
+  // According the LastPath[0], create the CorrectedPath
+  // LastPath[0] == L'\\' : need Root dir
+  // LastPath[0] != L'\\' : need Current dir
+  //
+  if (LastPath[0] != L'\\' && LastPath[0] != L'/') {
+    //
+    // Case 1: ls a\b\*   or fsX:a\b\c\*
+    //
+    Size = StrSize (CurDir) + sizeof(CHAR16) + StrSize (LastPath);
+    CorrectedPath = AllocateZeroPool (Size);
+    if (CorrectedPath != NULL) {
+      StrnCatS (CorrectedPath, Size/sizeof(CHAR16), CurDir, StrLen (CurDir));
+      StrnCatS (CorrectedPath, Size/sizeof(CHAR16), L"\\", 1);
+      StrnCatS (CorrectedPath, Size/sizeof(CHAR16), LastPath, StrLen (LastPath));
+    }
+  } else {
+    //
+    // Case 2: ls \a\b\*  or  fsX:\a\b\c\*
+    //
+    if (MapName != NULL) {
+      //
+      // FilePath is a complete path, directly use it.
+      //
+      CorrectedPath = AllocateCopyPool (StrSize (FilePath), FilePath);
+    } else {
+      //
+      // Get MapName when FilePath = "\a\b\*".
+      //
+      PartPath = StrStr (CurDir, L":");
+      if (PartPath != NULL) {
+        Size = StrSize (CurDir) - StrSize (PartPath);
+        MapName = AllocateZeroPool (Size + sizeof(CHAR16));
+      }
+      //
+      // PartPath and MapName should not be NULL.
+      //
+      if (MapName == NULL) {
+        return NULL;
+      }
+      CopyMem (MapName, CurDir, Size);
+
+      Size = StrSize (MapName) + StrSize (LastPath);
+      CorrectedPath = AllocateZeroPool (Size);
+      if (CorrectedPath != NULL) {
+        StrnCatS (CorrectedPath, Size/sizeof(CHAR16), MapName, StrLen (MapName));
+        StrnCatS (CorrectedPath, Size/sizeof(CHAR16), LastPath, StrLen (LastPath));
+      }
+    }
+  }
+
+  SHELL_FREE_NON_NULL (MapName);
+  CorrectedPath = PathCleanUpDirectories (CorrectedPath);
+  return CorrectedPath;
+}
+
+/**
   Close an open file handle.
 
   This function closes a specified file handle. All "dirty" cached file data is
@@ -499,7 +613,7 @@ EfiShellGetFilePathFromDevicePath(
   This function converts a file system style name to a device path, by replacing any
   mapping references to the associated device path.
 
-  @param[in] Path               The pointer to the path.
+  @param[in] FilePath            The pointer to the path.
 
   @return                       The pointer of the file path. The file path is callee
                                 allocated and should be freed by the caller.
@@ -509,12 +623,10 @@ EfiShellGetFilePathFromDevicePath(
 EFI_DEVICE_PATH_PROTOCOL *
 EFIAPI
 EfiShellGetDevicePathFromFilePath(
-  IN CONST CHAR16 *Path
+  IN CONST CHAR16 *FilePath
   )
 {
   CHAR16                          *MapName;
-  CHAR16                          *NewPath;
-  CONST CHAR16                    *Cwd;
   UINTN                           Size;
   CONST EFI_DEVICE_PATH_PROTOCOL  *DevicePath;
   EFI_DEVICE_PATH_PROTOCOL        *DevicePathCopy;
@@ -522,36 +634,14 @@ EfiShellGetDevicePathFromFilePath(
   EFI_DEVICE_PATH_PROTOCOL        *DevicePathForReturn;
   EFI_HANDLE                      Handle;
   EFI_STATUS                      Status;
+  CHAR16                          *Path;
 
+  Path = GetAbsolutePath (FilePath);
   if (Path == NULL) {
     return (NULL);
   }
 
   MapName = NULL;
-  NewPath = NULL;
-
-  if (StrStr(Path, L":") == NULL) {
-    Cwd = EfiShellGetCurDir(NULL);
-    if (Cwd == NULL) {
-      return (NULL);
-    }
-    Size = StrSize(Cwd) + StrSize(Path);
-    NewPath = AllocateZeroPool(Size);
-    if (NewPath == NULL) {
-      return (NULL);
-    }
-    StrCpyS(NewPath, Size/sizeof(CHAR16), Cwd);
-    StrCatS(NewPath, Size/sizeof(CHAR16), L"\\");
-    if (*Path == L'\\') {
-      Path++;
-      while (PathRemoveLastItem(NewPath)) ;
-    }
-    StrCatS(NewPath, Size/sizeof(CHAR16), Path);
-    DevicePathForReturn = EfiShellGetDevicePathFromFilePath(NewPath);
-    FreePool(NewPath);
-    return (DevicePathForReturn);
-  }
-
   Size = 0;
   //
   // find the part before (but including) the : for the map name
@@ -559,6 +649,7 @@ EfiShellGetDevicePathFromFilePath(
   ASSERT((MapName == NULL && Size == 0) || (MapName != NULL));
   MapName = StrnCatGrow(&MapName, &Size, Path, (StrStr(Path, L":")-Path+1));
   if (MapName == NULL || MapName[StrLen(MapName)-1] != L':') {
+    FreePool (Path);
     return (NULL);
   }
 
@@ -570,6 +661,7 @@ EfiShellGetDevicePathFromFilePath(
     //
     // Must have been a bad Mapname
     //
+    FreePool (Path);
     return (NULL);
   }
 
@@ -578,6 +670,7 @@ EfiShellGetDevicePathFromFilePath(
   //
   DevicePathCopyForFree = DevicePathCopy = DuplicateDevicePath(DevicePath);
   if (DevicePathCopy == NULL) {
+    FreePool (Path);
     FreePool(MapName);
     return (NULL);
   }
@@ -591,6 +684,7 @@ EfiShellGetDevicePathFromFilePath(
     if (DevicePathCopyForFree != NULL) {
       FreePool(DevicePathCopyForFree);
     }
+    FreePool (Path);
     FreePool(MapName);
     return (NULL);
   }
@@ -604,7 +698,7 @@ EfiShellGetDevicePathFromFilePath(
   } else {
     DevicePathForReturn = FileDevicePath(Handle, Path+StrLen(MapName));
   }
-
+  FreePool (Path);
   FreePool(MapName);
   if (DevicePathCopyForFree != NULL) {
     FreePool(DevicePathCopyForFree);
@@ -2523,7 +2617,7 @@ ShellSearchHandle(
 
   if *FileList is not NULL then it must be a pre-existing and properly initialized list.
 
-  @param FilePattern      Points to a NULL-terminated shell file path, including wildcards.
+  @param FilePath         Points to a NULL-terminated shell file path, including wildcards.
   @param FileList         On return, points to the start of a file list containing the names
                           of all matching files or else points to NULL if no matching files
                           were found.  only on a EFI_SUCCESS return will; this be non-NULL.
@@ -2537,7 +2631,7 @@ ShellSearchHandle(
 EFI_STATUS
 EFIAPI
 EfiShellFindFiles(
-  IN CONST CHAR16 *FilePattern,
+  IN CONST CHAR16 *FilePath,
   OUT EFI_SHELL_FILE_INFO **FileList
   )
 {
@@ -2548,7 +2642,9 @@ EfiShellFindFiles(
   SHELL_FILE_HANDLE               RootFileHandle;
   CHAR16                          *MapName;
   UINTN                           Count;
+  CHAR16                          *FilePattern;
 
+  FilePattern = GetAbsolutePath (FilePath);
   if ( FilePattern      == NULL
     || FileList         == NULL
     || StrStr(FilePattern, L":") == NULL
@@ -2561,6 +2657,7 @@ EfiShellFindFiles(
   MapName        = NULL;
   PatternCopy = AllocateCopyPool(StrSize(FilePattern), FilePattern);
   if (PatternCopy == NULL) {
+    FreePool (FilePattern);
     return (EFI_OUT_OF_RESOURCES);
   }
 
@@ -2591,6 +2688,7 @@ EfiShellFindFiles(
     }
   }
 
+  FreePool (FilePattern);
   SHELL_FREE_NON_NULL(PatternCopy);
   SHELL_FREE_NON_NULL(MapName);
 
