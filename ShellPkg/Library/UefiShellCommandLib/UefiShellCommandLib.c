@@ -72,12 +72,60 @@ CommandInit(
   VOID
   )
 {
-  EFI_STATUS Status;
+  UINTN                           NumHandles;
+  EFI_HANDLE                      *Handles;
+  EFI_UNICODE_COLLATION_PROTOCOL  *Uci;
+  BOOLEAN                         Iso639Language;
+  CHAR8                           *BestLanguage;
+  UINTN                           Index;
+  EFI_STATUS                      Status;
+
   if (gUnicodeCollation == NULL) {
-    Status = gBS->LocateProtocol(&gEfiUnicodeCollation2ProtocolGuid, NULL, (VOID**)&gUnicodeCollation);
-    if (EFI_ERROR(Status)) {
-      return (EFI_DEVICE_ERROR);
+    Status = gBS->LocateHandleBuffer (
+                    ByProtocol,
+                    &gEfiUnicodeCollation2ProtocolGuid,
+                    NULL,
+                    &NumHandles,
+                    &Handles
+                    );
+    if (EFI_ERROR (Status)) {
+      return Status;
     }
+    Iso639Language = FALSE;
+    for (Index = 0; Index < NumHandles; Index++) {
+      //
+      // Open Unicode Collation Protocol
+      //
+      Status = gBS->OpenProtocol (
+                      Handles[Index],
+                      &gEfiUnicodeCollation2ProtocolGuid,
+                      (VOID **) &Uci,
+                      gImageHandle,
+                      NULL,
+                      EFI_OPEN_PROTOCOL_GET_PROTOCOL
+                      );
+      if (EFI_ERROR (Status)) {
+        continue;
+      }
+
+      //
+      // Find the best matching matching language from the supported languages
+      // of Unicode Collation (2) protocol. 
+      //
+      BestLanguage = GetBestLanguage (
+                       Uci->SupportedLanguages,
+                       Iso639Language,
+                       "en",
+                       NULL
+                       );
+      if (BestLanguage != NULL) {
+        FreePool (BestLanguage);
+        FreePool (Handles);
+        gUnicodeCollation = Uci;
+        return EFI_SUCCESS;
+      }
+    }
+    return EFI_UNSUPPORTED;
   }
   return (EFI_SUCCESS);
 }
@@ -112,14 +160,11 @@ ShellCommandLibConstructor (
   mProfileListSize  = 0;
   mProfileList      = NULL;
 
-  if (gUnicodeCollation == NULL) {
-    Status = gBS->LocateProtocol(&gEfiUnicodeCollation2ProtocolGuid, NULL, (VOID**)&gUnicodeCollation);
-    if (EFI_ERROR(Status)) {
-      return (EFI_DEVICE_ERROR);
-    }
+  Status = CommandInit();
+  if (EFI_ERROR(Status)) {
+    return (EFI_DEVICE_ERROR);
   }
-
-  return (RETURN_SUCCESS);
+  return (EFI_SUCCESS);
 }
 
 /**
