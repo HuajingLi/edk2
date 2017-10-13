@@ -1270,11 +1270,9 @@ ShellCommandCreateInitialMappingsAndPaths(
   SHELL_MAP_LIST            *MapListNode;
   CONST CHAR16              *CurDir;
   CHAR16                    *SplitCurDir;
-  CHAR16                    *MapName;
   SHELL_MAP_LIST            *MapListItem;
 
   SplitCurDir = NULL;
-  MapName     = NULL;
   MapListItem = NULL;
   HandleList  = NULL;
 
@@ -1363,29 +1361,18 @@ ShellCommandCreateInitialMappingsAndPaths(
     HandleList = NULL;
 
     //
-    //gShellCurMapping point to node of current file system in the gShellMapList. When reset all mappings,
-    //all nodes in the gShellMapList will be free. Then gShellCurMapping will be a dangling pointer, So,
-    //after created new mappings, we should reset the gShellCurMapping pointer back to node of current file system.
+    // gShellCurMapping point to node of current file system in the gShellMapList. When reset all mappings,
+    // all nodes in the gShellMapList will be free. Then gShellCurMapping will be a dangling pointer, So,
+    // after created new mappings, we should reset the gShellCurMapping pointer back to node of current file system.
     //
     if (gShellCurMapping != NULL) {
-      gShellCurMapping = NULL;
-      CurDir = gEfiShellProtocol->GetEnv(L"cwd");
+      CurDir = gEfiShellProtocol->GetCurDir (NULL);
       if (CurDir != NULL) {
-        MapName = AllocateCopyPool (StrSize(CurDir), CurDir);
-        if (MapName == NULL) {
-          return EFI_OUT_OF_RESOURCES;
-        }
-        SplitCurDir = StrStr (MapName, L":");
-        if (SplitCurDir == NULL) {
-          SHELL_FREE_NON_NULL (MapName);
-          return EFI_UNSUPPORTED;
-        }
-        *(SplitCurDir + 1) = CHAR_NULL;
-        MapListItem = ShellCommandFindMapItem (MapName);
-        if (MapListItem != NULL) {
-          gShellCurMapping = MapListItem;
-        }
-        SHELL_FREE_NON_NULL (MapName);
+        //
+        // Update gShellCurMapping to node of current file system.
+        // And update gShellCurMapping->CurrentDirectoryPath to current directory.
+        //
+        gEfiShellProtocol->SetCurDir (NULL, CurDir);
       }
     }
   } else {
